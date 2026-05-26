@@ -30,6 +30,7 @@ from youtube_distiller.visual import extract_frames, plan_frame_samples, render_
 VIDEO_ID_REPLACEMENTS = str.maketrans({"?": "_", "&": "_", "=": "_", "/": "_", ":": "_"})
 DEFAULT_SUB_LANGS = "en.*,zh.*"
 DEFAULT_COOKIE_SOURCES = ("chrome", "safari", "firefox", "edge", "brave", "chromium")
+DEFAULT_MEDIA_PLAYER_CLIENTS = ("android",)
 
 
 def run(command: list[str]) -> subprocess.CompletedProcess:
@@ -57,14 +58,44 @@ def cookie_status(source: str | None) -> str:
     return f"via_{source}_cookies"
 
 
+def media_status(cookie_source: str | None, player_client: str | None) -> str:
+    if player_client:
+        return f"via_{player_client}_client_{cookie_status(cookie_source)}"
+    return cookie_status(cookie_source)
+
+
+def media_attempt_candidates(cookie_sources: list[str | None]) -> list[tuple[str | None, str | None]]:
+    candidates: list[tuple[str | None, str | None]] = []
+    seen: set[tuple[str | None, str | None]] = set()
+
+    for cookie_source in cookie_sources:
+        candidate = (cookie_source, None)
+        if candidate not in seen:
+            candidates.append(candidate)
+            seen.add(candidate)
+
+    for player_client in DEFAULT_MEDIA_PLAYER_CLIENTS:
+        # Mobile app clients currently cannot use browser cookies in yt-dlp, but
+        # they can still be the most reliable public-video fallback.
+        candidate = (None, player_client)
+        if candidate not in seen:
+            candidates.append(candidate)
+            seen.add(candidate)
+
+    return candidates
+
+
 def build_ytdlp_invocation(
     args: list[str],
     *,
     cookies_from_browser: str | None = None,
+    player_client: str | None = None,
 ) -> list[str]:
     command = [*ytdlp_command()]
     if cookies_from_browser:
         command.extend(["--cookies-from-browser", cookies_from_browser])
+    if player_client:
+        command.extend(["--extractor-args", f"youtube:player_client={player_client}"])
     command.extend(args)
     return command
 
@@ -163,7 +194,7 @@ def try_ytdlp_audio(
     cookie_sources: list[str | None],
 ) -> tuple[Path, str] | None:
     audio_dir.mkdir(parents=True, exist_ok=True)
-    for cookie_source in cookie_sources:
+    for cookie_source, player_client in media_attempt_candidates(cookie_sources):
         before = set(audio_dir.glob("*"))
         result = run(
             build_ytdlp_invocation(
@@ -178,12 +209,13 @@ def try_ytdlp_audio(
                     url,
                 ],
                 cookies_from_browser=cookie_source,
+                player_client=player_client,
             )
         )
         after = set(audio_dir.glob("*.mp3"))
         new_files = sorted(after - before, key=lambda p: p.stat().st_mtime, reverse=True)
         if result.returncode == 0 and new_files:
-            return new_files[0], cookie_status(cookie_source)
+            return new_files[0], media_status(cookie_source, player_client)
     return None
 
 
@@ -193,7 +225,7 @@ def try_ytdlp_video(
     cookie_sources: list[str | None],
 ) -> tuple[Path, str] | None:
     video_dir.mkdir(parents=True, exist_ok=True)
-    for cookie_source in cookie_sources:
+    for cookie_source, player_client in media_attempt_candidates(cookie_sources):
         before = set(video_dir.glob("*.mp4"))
         result = run(
             build_ytdlp_invocation(
@@ -207,12 +239,13 @@ def try_ytdlp_video(
                     url,
                 ],
                 cookies_from_browser=cookie_source,
+                player_client=player_client,
             )
         )
         after = set(video_dir.glob("*.mp4"))
         new_files = sorted(after - before, key=lambda p: p.stat().st_mtime, reverse=True)
         if result.returncode == 0 and new_files:
-            return new_files[0], cookie_status(cookie_source)
+            return new_files[0], media_status(cookie_source, player_client)
     return None
 
 
@@ -617,7 +650,7 @@ def main() -> int:
                     else:
                         record_source(source_manifest, "whisper_audio", "unavailable")
                 else:
-                    record_source(source_manifest, step, "unavailable_after_cookie_fallbacks")
+                    record_source(source_manifest, step, "unavailable_after_cookie_and_client_fallbacks")
 
             elif step == "video_download":
                 video_status = None
@@ -650,7 +683,7 @@ def main() -> int:
                         else:
                             record_source(source_manifest, "whisper_video", "unavailable")
                 else:
-                    record_source(source_manifest, step, "unavailable_after_cookie_fallbacks")
+                    record_source(source_manifest, step, "unavailable_after_cookie_and_client_fallbacks")
 
     primary_transcript = choose_primary_transcript(transcript_candidates)
     if primary_transcript is not None:

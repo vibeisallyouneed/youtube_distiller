@@ -69,6 +69,10 @@ Useful flags:
 - `--sub-langs "en.*,zh.*"` to control caption languages.
 - `--no-video-understanding` only when visuals are irrelevant.
 
+Media downloads retry normal cookie/no-cookie paths first, then retry public
+videos with the YouTube Android client without browser cookies. This is
+required for some current YouTube web-client 403/SABR failures.
+
 ## Output Flow
 
 1. Attempt all applicable caption, audio, and video sources.

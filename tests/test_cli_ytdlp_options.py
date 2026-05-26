@@ -27,6 +27,32 @@ def test_ytdlp_invocation_can_include_browser_cookies(monkeypatch):
     ]
 
 
+def test_ytdlp_invocation_can_include_youtube_player_client(monkeypatch):
+    monkeypatch.setattr(summarize_video, "ytdlp_command", lambda: ["yt-dlp"])
+
+    command = summarize_video.build_ytdlp_invocation(
+        ["-f", "18", "https://youtube.test/watch?v=abc"],
+        player_client="android",
+    )
+
+    assert command == [
+        "yt-dlp",
+        "--extractor-args",
+        "youtube:player_client=android",
+        "-f",
+        "18",
+        "https://youtube.test/watch?v=abc",
+    ]
+
+
+def test_media_attempts_try_cookie_paths_then_android_without_cookies():
+    assert summarize_video.media_attempt_candidates([None, "chrome"]) == [
+        (None, None),
+        ("chrome", None),
+        (None, "android"),
+    ]
+
+
 def test_caption_command_defaults_to_english_and_chinese_subtitles(monkeypatch, tmp_path):
     monkeypatch.setattr(summarize_video, "ytdlp_command", lambda: ["yt-dlp"])
 
@@ -80,6 +106,59 @@ def test_caption_acquisition_retries_with_browser_cookies(monkeypatch, tmp_path)
     assert result == (tmp_path / "abc.zh.vtt", "via_chrome_cookies")
     assert "--cookies-from-browser" not in calls[0]
     assert calls[1][1:3] == ["--cookies-from-browser", "chrome"]
+
+
+def test_video_download_falls_back_to_android_client_without_cookies(monkeypatch, tmp_path):
+    monkeypatch.setattr(summarize_video, "ytdlp_command", lambda: ["yt-dlp"])
+    calls = []
+
+    def fake_run(command):
+        calls.append(command)
+        if "youtube:player_client=android" in command:
+            output = tmp_path / "abc.mp4"
+            output.write_text("video", encoding="utf-8")
+            return subprocess.CompletedProcess(command, 0, "", "")
+        return subprocess.CompletedProcess(command, 1, "", "HTTP Error 403: Forbidden")
+
+    monkeypatch.setattr(summarize_video, "run", fake_run)
+
+    result = summarize_video.try_ytdlp_video(
+        "https://youtube.test/watch?v=abc",
+        tmp_path,
+        cookie_sources=[None, "chrome"],
+    )
+
+    assert result == (tmp_path / "abc.mp4", "via_android_client_without_browser_cookies")
+    assert "--cookies-from-browser" not in calls[0]
+    assert calls[1][1:3] == ["--cookies-from-browser", "chrome"]
+    assert "--cookies-from-browser" not in calls[2]
+    assert calls[2][1:3] == ["--extractor-args", "youtube:player_client=android"]
+
+
+def test_audio_download_uses_same_android_client_fallback(monkeypatch, tmp_path):
+    monkeypatch.setattr(summarize_video, "ytdlp_command", lambda: ["yt-dlp"])
+    calls = []
+
+    def fake_run(command):
+        calls.append(command)
+        if "youtube:player_client=android" in command:
+            output = tmp_path / "abc.mp3"
+            output.write_text("audio", encoding="utf-8")
+            return subprocess.CompletedProcess(command, 0, "", "")
+        return subprocess.CompletedProcess(command, 1, "", "HTTP Error 403: Forbidden")
+
+    monkeypatch.setattr(summarize_video, "run", fake_run)
+
+    result = summarize_video.try_ytdlp_audio(
+        "https://youtube.test/watch?v=abc",
+        tmp_path,
+        cookie_sources=["chrome"],
+    )
+
+    assert result == (tmp_path / "abc.mp3", "via_android_client_without_browser_cookies")
+    assert calls[0][1:3] == ["--cookies-from-browser", "chrome"]
+    assert "--cookies-from-browser" not in calls[1]
+    assert calls[1][1:3] == ["--extractor-args", "youtube:player_client=android"]
 
 
 def test_unavailable_report_does_not_make_sufficiency_claims(tmp_path):

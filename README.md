@@ -54,6 +54,11 @@ cookie sources: Chrome, Safari, Firefox, Edge, Brave, and Chromium. Use
 specific browser such as `--cookies-from-browser chrome`. The default caption
 language selector is `--sub-langs "en.*,zh.*"`.
 
+For media downloads, the CLI also retries public-video acquisition with
+`youtube:player_client=android` without browser cookies after normal cookie
+paths fail. This handles current YouTube web-client 403/SABR behavior while
+still preserving cookie-based attempts for captions and restricted videos.
+
 For a local transcript:
 
 ```bash
