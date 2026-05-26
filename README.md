@@ -10,8 +10,8 @@ The bundled installable skill is in `skills/youtube-distiller`.
 
 ## Source Policy
 
-The distiller does not treat metadata as enough evidence. For YouTube URLs it
-attempts acquisition in this order:
+The distiller treats metadata as identification/debug data only. For YouTube
+URLs it attempts acquisition in this order:
 
 1. manual captions
 2. auto captions
@@ -19,7 +19,7 @@ attempts acquisition in this order:
 4. video download plus sampled frames when visual understanding is needed
 
 If those fail, it writes a `source_unavailable` report instead of summarizing
-from metadata alone.
+from metadata.
 
 ## Install
 
@@ -40,14 +40,15 @@ From the repo root:
 ```bash
 python3 scripts/summarize_video.py \
   --url "https://www.youtube.com/watch?v=VIDEO_ID" \
-  --cookies-from-browser chrome \
   --requirement "Extract the trading strategy and identify missing backtest rules" \
   --output data/summaries/VIDEO_ID.md
 ```
 
-Use `--cookies-from-browser chrome|safari|firefox|edge|brave|chromium` when
-YouTube hides captions or media behind browser session access. The default
-caption language selector is `--sub-langs "en.*,zh.*"`.
+By default, the CLI tries unauthenticated `yt-dlp` first, then common browser
+cookie sources: Chrome, Safari, Firefox, Edge, Brave, and Chromium. Use
+`--cookies-from-browser none` to disable browser-cookie fallback, or pass a
+specific browser such as `--cookies-from-browser chrome`. The default caption
+language selector is `--sub-langs "en.*,zh.*"`.
 
 For a local transcript:
 

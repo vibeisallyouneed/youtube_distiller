@@ -14,19 +14,22 @@ as trading strategy rules.
 
 ## Core Rule
 
-Do not pretend source access succeeded. Metadata is useful for identifying the
-video, but metadata alone is never enough to satisfy a user request.
+Do not pretend source access succeeded. Metadata is useful for identifying and
+debugging a video, but metadata is not a transcript, audio stream, or visual
+source.
 
-Always attempt source acquisition in this order:
+Always attempt every applicable source before summarizing or extracting:
 
 1. manual captions
 2. auto captions
 3. audio download + Whisper transcription
 4. video download + sampled frames when visual understanding is needed
 
-Only after those fail should the skill produce a failure report asking for a
-local video/audio/transcript file or an explicitly labeled indexed transcript
-fallback.
+Captions are not a stopping condition. The skill must continue to attempt audio
+and video acquisition even after captions are found, then report the full
+acquisition manifest. Only after the applicable sources fail should the skill
+produce a failure report asking for a local video/audio/transcript file or an
+explicitly labeled indexed transcript fallback.
 
 If the requested output depends on visuals, charts, slides, code, UI actions, or
 on-screen text, visual evidence is required. If frames are unavailable, say so
@@ -58,19 +61,21 @@ Useful flags:
 - `--output-kind summary|qa|topic|tutorial|strategy|claims|notes|custom`
 - `--question "specific question"` for Q&A.
 - `--topic "specific topic"` for topic extraction.
-- `--cookies-from-browser chrome|safari|firefox|edge|brave|chromium` when
-  YouTube hides captions/media behind browser session access.
+- `--cookies-from-browser auto|chrome|safari|firefox|edge|brave|chromium|none`.
+  Default `auto` tries unauthenticated access first, then common browser-cookie
+  sources.
 - `--sub-langs "en.*,zh.*"` to control caption languages.
 - `--no-video-understanding` only when visuals are irrelevant.
 
 ## Output Flow
 
-1. Acquire captions. If absent, transcribe audio with Whisper.
-2. Acquire visual frames when needed. The script samples frames with `ffmpeg`
+1. Attempt all applicable caption, audio, and video sources.
+2. Transcribe any acquired audio/video with Whisper.
+3. Acquire visual frames when needed. The script samples frames with `ffmpeg`
    and writes `data/frames/<video_id>/visual_manifest.json`.
-3. Use the generated Markdown shell as evidence context.
-4. Refine the final answer to match the user's `--requirement`.
-5. Include source limitations and missing evidence.
+4. Use the generated Markdown shell as evidence context.
+5. Refine the final answer to match the user's `--requirement`.
+6. Include every source acquired, every source unavailable, and missing evidence.
 
 ## Output Kinds
 

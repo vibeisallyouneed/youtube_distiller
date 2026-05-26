@@ -29,6 +29,7 @@ from youtube_distiller.visual import extract_frames, plan_frame_samples, render_
 
 VIDEO_ID_REPLACEMENTS = str.maketrans({"?": "_", "&": "_", "=": "_", "/": "_", ":": "_"})
 DEFAULT_SUB_LANGS = "en.*,zh.*"
+DEFAULT_COOKIE_SOURCES = ("chrome", "safari", "firefox", "edge", "brave", "chromium")
 
 
 def run(command: list[str]) -> subprocess.CompletedProcess:
@@ -40,6 +41,20 @@ def ytdlp_command() -> list[str]:
     if binary:
         return [binary]
     return [sys.executable, "-m", "yt_dlp"]
+
+
+def cookie_candidates(cookies_from_browser: str | None) -> list[str | None]:
+    if cookies_from_browser is None or cookies_from_browser == "auto":
+        return [None, *DEFAULT_COOKIE_SOURCES]
+    if cookies_from_browser.lower() in {"none", "off", "false", "no"}:
+        return [None]
+    return [cookies_from_browser]
+
+
+def cookie_status(source: str | None) -> str:
+    if source is None:
+        return "without_browser_cookies"
+    return f"via_{source}_cookies"
 
 
 def build_ytdlp_invocation(
@@ -54,20 +69,21 @@ def build_ytdlp_invocation(
     return command
 
 
-def fetch_metadata(url: str, cookies_from_browser: str | None = None) -> dict | None:
-    result = run(
-        build_ytdlp_invocation(
-            ["--dump-json", "--skip-download", url],
-            cookies_from_browser=cookies_from_browser,
+def fetch_metadata(url: str, cookie_sources: list[str | None]) -> dict | None:
+    for cookie_source in cookie_sources:
+        result = run(
+            build_ytdlp_invocation(
+                ["--dump-json", "--skip-download", url],
+                cookies_from_browser=cookie_source,
+            )
         )
-    )
-    if result.returncode != 0:
-        return None
-    for line in result.stdout.splitlines():
-        try:
-            return json.loads(line)
-        except json.JSONDecodeError:
+        if result.returncode != 0:
             continue
+        for line in result.stdout.splitlines():
+            try:
+                return json.loads(line)
+            except json.JSONDecodeError:
+                continue
     return None
 
 
@@ -120,80 +136,83 @@ def try_ytdlp_captions(
     raw_dir: Path,
     auto: bool,
     sub_langs: str,
-    cookies_from_browser: str | None = None,
-) -> Path | None:
+    cookie_sources: list[str | None],
+) -> tuple[Path, str] | None:
     raw_dir.mkdir(parents=True, exist_ok=True)
-    before = set(raw_dir.glob("*.vtt"))
-    result = run(
-        build_caption_command(
-            url=url,
-            raw_dir=raw_dir,
-            auto=auto,
-            sub_langs=sub_langs,
-            cookies_from_browser=cookies_from_browser,
+    for cookie_source in cookie_sources:
+        before = set(raw_dir.glob("*.vtt"))
+        result = run(
+            build_caption_command(
+                url=url,
+                raw_dir=raw_dir,
+                auto=auto,
+                sub_langs=sub_langs,
+                cookies_from_browser=cookie_source,
+            )
         )
-    )
-    after = set(raw_dir.glob("*.vtt"))
-    new_files = sorted(after - before, key=lambda p: p.stat().st_mtime, reverse=True)
-    if result.returncode == 0 and new_files:
-        return new_files[0]
+        after = set(raw_dir.glob("*.vtt"))
+        new_files = sorted(after - before, key=lambda p: p.stat().st_mtime, reverse=True)
+        if result.returncode == 0 and new_files:
+            return new_files[0], cookie_status(cookie_source)
     return None
 
 
 def try_ytdlp_audio(
     url: str,
     audio_dir: Path,
-    cookies_from_browser: str | None = None,
-) -> Path | None:
+    cookie_sources: list[str | None],
+) -> tuple[Path, str] | None:
     audio_dir.mkdir(parents=True, exist_ok=True)
-    before = set(audio_dir.glob("*"))
-    result = run(
-        build_ytdlp_invocation(
-            [
-                "-f",
-                "bestaudio/best",
-                "-x",
-                "--audio-format",
-                "mp3",
-                "-o",
-                str(audio_dir / "%(id)s.%(ext)s"),
-                url,
-            ],
-            cookies_from_browser=cookies_from_browser,
+    for cookie_source in cookie_sources:
+        before = set(audio_dir.glob("*"))
+        result = run(
+            build_ytdlp_invocation(
+                [
+                    "-f",
+                    "bestaudio/best",
+                    "-x",
+                    "--audio-format",
+                    "mp3",
+                    "-o",
+                    str(audio_dir / "%(id)s.%(ext)s"),
+                    url,
+                ],
+                cookies_from_browser=cookie_source,
+            )
         )
-    )
-    after = set(audio_dir.glob("*.mp3"))
-    new_files = sorted(after - before, key=lambda p: p.stat().st_mtime, reverse=True)
-    if result.returncode == 0 and new_files:
-        return new_files[0]
+        after = set(audio_dir.glob("*.mp3"))
+        new_files = sorted(after - before, key=lambda p: p.stat().st_mtime, reverse=True)
+        if result.returncode == 0 and new_files:
+            return new_files[0], cookie_status(cookie_source)
     return None
 
 
 def try_ytdlp_video(
     url: str,
     video_dir: Path,
-    cookies_from_browser: str | None = None,
-) -> Path | None:
+    cookie_sources: list[str | None],
+) -> tuple[Path, str] | None:
     video_dir.mkdir(parents=True, exist_ok=True)
-    before = set(video_dir.glob("*.mp4"))
-    result = run(
-        build_ytdlp_invocation(
-            [
-                "-f",
-                "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/best",
-                "--merge-output-format",
-                "mp4",
-                "-o",
-                str(video_dir / "%(id)s.%(ext)s"),
-                url,
-            ],
-            cookies_from_browser=cookies_from_browser,
+    for cookie_source in cookie_sources:
+        before = set(video_dir.glob("*.mp4"))
+        result = run(
+            build_ytdlp_invocation(
+                [
+                    "-f",
+                    "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/best",
+                    "--merge-output-format",
+                    "mp4",
+                    "-o",
+                    str(video_dir / "%(id)s.%(ext)s"),
+                    url,
+                ],
+                cookies_from_browser=cookie_source,
+            )
         )
-    )
-    after = set(video_dir.glob("*.mp4"))
-    new_files = sorted(after - before, key=lambda p: p.stat().st_mtime, reverse=True)
-    if result.returncode == 0 and new_files:
-        return new_files[0]
+        after = set(video_dir.glob("*.mp4"))
+        new_files = sorted(after - before, key=lambda p: p.stat().st_mtime, reverse=True)
+        if result.returncode == 0 and new_files:
+            return new_files[0], cookie_status(cookie_source)
     return None
 
 
@@ -322,9 +341,9 @@ def write_unavailable(
     metadata_section = render_metadata_section(metadata) if metadata else ""
     source_lines = render_source_manifest(source_manifest or [])
     result_text = (
-        "I could not acquire enough source evidence to answer the request accurately. "
+        "I could not acquire a transcript, audio, or video source for this request. "
         "Metadata may be shown below for identification and debugging, but metadata "
-        "alone is not enough to summarize, answer questions, or extract rules from "
+        "alone is not a video source and must not be used to summarize, answer questions, or extract rules from "
         "the video."
     )
     next_steps = (
@@ -421,8 +440,9 @@ def render_metadata_section(metadata: dict | None) -> str:
 
 ### Diagnostic Note
 
-This metadata is not enough to answer the user's request. It is included only so
-the user can verify the video identity and choose a next acquisition path.
+This metadata is included only so the user can verify the video identity and
+debug source acquisition. Do not use it as a substitute for transcript, audio,
+or video evidence.
 """
 
 
@@ -471,7 +491,11 @@ def main() -> int:
     parser.add_argument("--transcript-dir", type=Path, default=Path("data/transcripts"))
     parser.add_argument(
         "--cookies-from-browser",
-        help="Browser name for yt-dlp cookies, for example chrome, safari, firefox, edge, brave, or chromium.",
+        default="auto",
+        help=(
+            "Browser name for yt-dlp cookies. Defaults to auto, which tries no cookies "
+            "then chrome, safari, firefox, edge, brave, and chromium. Use none to disable."
+        ),
     )
     parser.add_argument(
         "--sub-langs",
@@ -493,7 +517,9 @@ def main() -> int:
     if not args.url and not args.input and not args.video_input:
         parser.error("Provide --url, --input, or --video-input")
 
-    metadata = fetch_metadata(args.url, args.cookies_from_browser) if args.url else None
+    cookie_sources = cookie_candidates(args.cookies_from_browser)
+
+    metadata = fetch_metadata(args.url, cookie_sources) if args.url else None
     if metadata and args.url:
         args.title = metadata_title(metadata, args.title)
         args.url = metadata_video_url(metadata, args.url)
@@ -544,13 +570,14 @@ def main() -> int:
                     args.raw_dir,
                     auto=False,
                     sub_langs=args.sub_langs,
-                    cookies_from_browser=args.cookies_from_browser,
+                    cookie_sources=cookie_sources,
                 )
                 if manual_path is not None:
-                    record_source(source_manifest, step, "available", manual_path)
-                    transcript_candidates.append(("manual_captions", manual_path))
+                    path, status = manual_path
+                    record_source(source_manifest, step, f"available_{status}", path)
+                    transcript_candidates.append(("manual_captions", path))
                 else:
-                    record_source(source_manifest, step, "unavailable")
+                    record_source(source_manifest, step, "unavailable_after_cookie_fallbacks")
 
             elif step == "auto_captions":
                 if args.force_whisper:
@@ -561,22 +588,24 @@ def main() -> int:
                     args.raw_dir,
                     auto=True,
                     sub_langs=args.sub_langs,
-                    cookies_from_browser=args.cookies_from_browser,
+                    cookie_sources=cookie_sources,
                 )
                 if auto_path is not None:
-                    record_source(source_manifest, step, "available", auto_path)
-                    transcript_candidates.append(("auto_captions", auto_path))
+                    path, status = auto_path
+                    record_source(source_manifest, step, f"available_{status}", path)
+                    transcript_candidates.append(("auto_captions", path))
                 else:
-                    record_source(source_manifest, step, "unavailable")
+                    record_source(source_manifest, step, "unavailable_after_cookie_fallbacks")
 
             elif step == "audio_download":
                 audio_path = try_ytdlp_audio(
                     args.url,
                     args.audio_dir,
-                    cookies_from_browser=args.cookies_from_browser,
+                    cookie_sources=cookie_sources,
                 )
                 if audio_path is not None:
-                    record_source(source_manifest, step, "available", audio_path)
+                    audio_path, status = audio_path
+                    record_source(source_manifest, step, f"available_{status}", audio_path)
                     audio_transcript = transcribe_audio(
                         audio_path,
                         args.transcript_dir / f"{video_id_from_audio(audio_path)}.jsonl",
@@ -588,17 +617,27 @@ def main() -> int:
                     else:
                         record_source(source_manifest, "whisper_audio", "unavailable")
                 else:
-                    record_source(source_manifest, step, "unavailable")
+                    record_source(source_manifest, step, "unavailable_after_cookie_fallbacks")
 
             elif step == "video_download":
+                video_status = None
                 if video_path is None:
-                    video_path = try_ytdlp_video(
+                    video_result = try_ytdlp_video(
                         args.url,
                         args.video_dir,
-                        cookies_from_browser=args.cookies_from_browser,
+                        cookie_sources=cookie_sources,
                     )
+                    if video_result is not None:
+                        video_path, video_status = video_result
+                    else:
+                        video_status = None
                 if video_path is not None:
-                    record_source(source_manifest, step, "available", video_path)
+                    record_source(
+                        source_manifest,
+                        step,
+                        f"available_{video_status}" if video_status else "available_user_video",
+                        video_path,
+                    )
                     if not any(source == "whisper_audio" for source, _ in transcript_candidates):
                         video_transcript = transcribe_audio(
                             video_path,
@@ -611,7 +650,7 @@ def main() -> int:
                         else:
                             record_source(source_manifest, "whisper_video", "unavailable")
                 else:
-                    record_source(source_manifest, step, "unavailable")
+                    record_source(source_manifest, step, "unavailable_after_cookie_fallbacks")
 
     primary_transcript = choose_primary_transcript(transcript_candidates)
     if primary_transcript is not None:
