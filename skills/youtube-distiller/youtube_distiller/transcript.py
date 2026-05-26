@@ -147,14 +147,15 @@ def render_markdown_summary_shell(
 ) -> str:
     evidence = "\n".join(
         f"- `{seconds_to_timestamp(segment.start_sec)}` {segment.text}"
-        for segment in segments[:80]
+        for segment in segments
     )
     has_visual_frames = bool(visual_manifest and visual_manifest.get("frames"))
+    has_visual_extraction = visual_manifest_has_extraction(visual_manifest)
     if visual_manifest and visual_manifest.get("frames"):
         visual_status = "available"
         visual_lines = "\n".join(
-            f"- `{seconds_to_timestamp(frame['timestamp_sec'])}` {frame['path']}"
-            for frame in visual_manifest["frames"][:80]
+            render_visual_frame_line(frame)
+            for frame in visual_manifest["frames"]
         )
     elif visual_required:
         visual_status = "missing_required"
@@ -170,11 +171,13 @@ def render_markdown_summary_shell(
     distillation_status = render_distillation_status(
         visual_required=visual_required,
         has_visual_frames=has_visual_frames,
+        has_visual_extraction=has_visual_extraction,
     )
     completion_gate = render_completion_gate(
         distillation_status=distillation_status,
         visual_required=visual_required,
         has_visual_frames=has_visual_frames,
+        has_visual_extraction=has_visual_extraction,
     )
 
     focus_lines = [
@@ -232,6 +235,11 @@ For trading videos, visual evidence is required whenever the speaker references
 charts, candles, indicators, levels, on-screen examples, or phrases like
 `look here`, `this setup`, `entry`, `stop`, or `target`.
 
+Use extracted visual text and visual notes as source material for the requested
+output, not as an appendix. For strategy extraction, reconcile the transcript,
+OCR text, and frame notes before deciding whether entry, exit, stop, sizing,
+indicator settings, timeframe, and execution timing are explicit.
+
 ## Visual Evidence Map
 
 {visual_lines}
@@ -240,6 +248,36 @@ charts, candles, indicators, levels, on-screen examples, or phrases like
 
 {evidence}
 """
+
+
+def render_visual_frame_line(frame: dict) -> str:
+    timestamp = seconds_to_timestamp(frame.get("timestamp_sec", 0))
+    path = frame.get("path", "")
+    reasons = frame.get("reasons") or []
+    reason_text = f" Reasons: {', '.join(reasons)}." if reasons else ""
+    ocr_text = clean_visual_text(frame.get("ocr_text"))
+    ocr_part = f" OCR: {ocr_text}" if ocr_text else ""
+    notes = clean_visual_text(frame.get("vision_notes"))
+    notes_part = f" Visual notes: {notes}" if notes else ""
+    return f"- `{timestamp}` {path}.{reason_text}{ocr_part}{notes_part}"
+
+
+def clean_visual_text(value) -> str:
+    if not value:
+        return ""
+    text = re.sub(r"\s+", " ", str(value)).strip()
+    if len(text) > 500:
+        return f"{text[:497]}..."
+    return text
+
+
+def visual_manifest_has_extraction(visual_manifest: dict | None) -> bool:
+    if not visual_manifest:
+        return False
+    for frame in visual_manifest.get("frames", []):
+        if clean_visual_text(frame.get("ocr_text")) or clean_visual_text(frame.get("vision_notes")):
+            return True
+    return False
 
 
 def render_output_guidance(
@@ -288,11 +326,18 @@ def render_output_guidance(
     return f"Produce a concise executive summary, main points, takeaways, and caveats.{visual_note}"
 
 
-def render_distillation_status(*, visual_required: bool, has_visual_frames: bool) -> str:
+def render_distillation_status(
+    *,
+    visual_required: bool,
+    has_visual_frames: bool,
+    has_visual_extraction: bool = False,
+) -> str:
     if visual_required and not has_visual_frames:
         return "partial_missing_required_visual_evidence"
+    if visual_required and not has_visual_extraction:
+        return "visual_sources_acquired_pending_interpretation"
     if visual_required:
-        return "complete_with_visual_evidence"
+        return "complete_with_visual_extraction"
     return "complete_transcript_only_visual_not_required"
 
 
@@ -301,6 +346,7 @@ def render_completion_gate(
     distillation_status: str,
     visual_required: bool,
     has_visual_frames: bool,
+    has_visual_extraction: bool = False,
 ) -> str:
     if visual_required and not has_visual_frames:
         return (
@@ -311,6 +357,15 @@ def render_completion_gate(
             "or complete strategy extraction.\n"
             "- Use this artifact only for transcript-grounded interim notes until video "
             "frames, local video, or another visual source is provided."
+        )
+    if visual_required and not has_visual_extraction:
+        return (
+            "- Status: visual sources acquired, interpretation pending.\n"
+            "- Do not finalize visual-dependent extraction from frame paths alone.\n"
+            "- Inspect the sampled frames or run OCR/vision annotation first.\n"
+            "- For trading strategy extraction, do not mark the strategy backable until "
+            "visual thresholds, indicator settings, chart examples, and on-screen rules "
+            "have been reconciled with the transcript."
         )
     return (
         f"- Status: {distillation_status}.\n"

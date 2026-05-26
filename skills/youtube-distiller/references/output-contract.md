@@ -14,7 +14,7 @@ search index, ranking system, study database, or downstream automation.
   "duration_sec": 0,
   "user_requirement": "",
   "output_kind": "summary|qa|topic|tutorial|strategy|claims|notes|custom",
-  "distillation_status": "complete_with_visual_evidence|complete_transcript_only_visual_not_required|partial_missing_required_visual_evidence|source_unavailable",
+  "distillation_status": "complete_with_visual_extraction|visual_sources_acquired_pending_interpretation|complete_transcript_only_visual_not_required|partial_missing_required_visual_evidence|source_unavailable",
   "source_status": {
     "transcript": "manual_captions|auto_captions|whisper|user_provided|missing",
     "visual": "available|missing_required|not_required",

@@ -16,7 +16,8 @@ URLs it attempts acquisition in this order:
 1. manual captions
 2. auto captions
 3. audio download plus Whisper transcription
-4. video download plus sampled frames when visual understanding is needed
+4. video download plus dense, transcript-aligned, and scene-change sampled
+   frames when visual understanding is needed
 
 If those fail, it writes a `source_unavailable` report instead of summarizing
 from metadata.
@@ -24,6 +25,10 @@ from metadata.
 When visual evidence is required but video frames cannot be acquired, the output
 is marked `partial_missing_required_visual_evidence`. Treat that as transcript-
 grounded interim evidence, not a complete video distillation.
+
+When frames are acquired but no OCR text or vision notes have been extracted,
+the output is marked `visual_sources_acquired_pending_interpretation`. Frame
+paths alone are not treated as extracted information.
 
 ## Install
 
@@ -58,6 +63,12 @@ For media downloads, the CLI also retries public-video acquisition with
 `youtube:player_client=android` without browser cookies after normal cookie
 paths fail. This handles current YouTube web-client 403/SABR behavior while
 still preserving cookie-based attempts for captions and restricted videos.
+
+Visual extraction uses dense frame sampling, transcript segment boundaries,
+visual cue neighborhoods, and ffmpeg scene-change detection. If Tesseract is
+installed, OCR text from sampled frames is included directly in the generated
+Markdown context. The default dense interval is five seconds and can be lowered
+with `--frame-interval-sec`.
 
 For a local transcript:
 

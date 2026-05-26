@@ -89,7 +89,7 @@ Look here at this chart setup.
     assert "Visual evidence: missing_required" in markdown
 
 
-def test_markdown_shell_marks_complete_when_required_visual_evidence_exists():
+def test_markdown_shell_marks_pending_when_frames_have_no_extracted_visual_text():
     segments = parse_vtt(
         """WEBVTT
 
@@ -114,5 +114,39 @@ Look here at this chart setup.
         },
     )
 
-    assert "Distillation status: complete_with_visual_evidence" in markdown
+    assert "Distillation status: visual_sources_acquired_pending_interpretation" in markdown
     assert "Visual evidence: available" in markdown
+
+
+def test_markdown_shell_renders_visual_ocr_as_extraction_context():
+    segments = parse_vtt(
+        """WEBVTT
+
+00:00:01.000 --> 00:00:05.000
+The rule is shown on screen.
+"""
+    )
+
+    markdown = render_markdown_summary_shell(
+        title="Chart Strategy",
+        url="https://www.youtube.com/watch?v=abc",
+        transcript_source="manual_captions",
+        segments=segments,
+        visual_required=True,
+        visual_manifest={
+            "frames": [
+                {
+                    "timestamp_sec": 1,
+                    "path": "frames/frame_000001.jpg",
+                    "reasons": ["scene_change", "transcript_boundary"],
+                    "ocr_text": "Entry: close above VWAP. Stop: previous swing low.",
+                    "vision_notes": "Chart displays VWAP and a breakout marker.",
+                }
+            ]
+        },
+    )
+
+    assert "Distillation status: complete_with_visual_extraction" in markdown
+    assert "OCR: Entry: close above VWAP. Stop: previous swing low." in markdown
+    assert "Visual notes: Chart displays VWAP and a breakout marker." in markdown
+    assert "Reasons: scene_change, transcript_boundary" in markdown

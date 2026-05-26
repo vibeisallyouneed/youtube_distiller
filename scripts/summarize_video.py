@@ -25,6 +25,13 @@ from youtube_distiller.transcript import (
     render_markdown_summary_shell,
 )
 from youtube_distiller.visual import extract_frames, plan_frame_samples, render_visual_manifest
+from youtube_distiller.visual import (
+    detect_scene_change_timestamps,
+    extract_ocr_text,
+    frame_reason_map,
+    ocr_engine_available,
+    timestamp_from_frame_path,
+)
 
 
 VIDEO_ID_REPLACEMENTS = str.maketrans({"?": "_", "&": "_", "=": "_", "/": "_", ":": "_"})
@@ -539,7 +546,33 @@ def main() -> int:
     parser.add_argument("--force-whisper", action="store_true")
     parser.add_argument("--video-input", type=Path, help="Local video file for visual evidence")
     parser.add_argument("--duration-sec", type=int, help="Video duration if ffprobe is unavailable")
-    parser.add_argument("--frame-interval-sec", type=int, default=10)
+    parser.add_argument(
+        "--frame-interval-sec",
+        type=int,
+        default=5,
+        help=(
+            "Dense frame sampling interval. Lower values reduce missed visual "
+            "information at the cost of more frames."
+        ),
+    )
+    parser.add_argument(
+        "--scene-threshold",
+        type=float,
+        default=0.3,
+        help="ffmpeg scene-change threshold for additional visual sampling.",
+    )
+    parser.add_argument(
+        "--max-scene-frames",
+        type=int,
+        default=500,
+        help="Maximum scene-change timestamps to add to dense visual sampling.",
+    )
+    parser.add_argument(
+        "--ocr-lang",
+        default="eng+chi_sim+chi_tra",
+        help="Tesseract OCR language list for sampled frames.",
+    )
+    parser.add_argument("--no-ocr", action="store_true", help="Skip OCR on sampled frames.")
     parser.add_argument(
         "--no-video-understanding",
         action="store_true",
@@ -741,10 +774,22 @@ def main() -> int:
         if duration_sec is None and segments:
             duration_sec = int(max(segment.end_sec for segment in segments))
         if duration_sec is not None:
-            timestamps = plan_frame_samples(
+            planned_timestamps = plan_frame_samples(
                 duration_sec=duration_sec,
                 interval_sec=args.frame_interval_sec,
                 transcript=segments,
+            )
+            scene_timestamps = detect_scene_change_timestamps(
+                video=video_path,
+                threshold=args.scene_threshold,
+                max_scenes=args.max_scene_frames,
+            )
+            timestamps = sorted(set(planned_timestamps + scene_timestamps))
+            reasons_by_timestamp = frame_reason_map(
+                timestamps=timestamps,
+                interval_sec=args.frame_interval_sec,
+                transcript=segments,
+                scene_timestamps=scene_timestamps,
             )
             frame_root = args.frames_dir / video_path.stem
             frames = extract_frames(
@@ -753,10 +798,37 @@ def main() -> int:
                 timestamps=timestamps,
             )
             record_source(source_manifest, "sampled_frames", "available" if frames else "unavailable", frame_root)
+            record_source(
+                source_manifest,
+                "scene_change_frames",
+                f"available_{len(scene_timestamps)}_timestamps"
+                if scene_timestamps
+                else "unavailable_or_no_scene_changes",
+                frame_root,
+            )
+            ocr_text_by_frame = {}
+            if args.no_ocr:
+                record_source(source_manifest, "visual_ocr", "skipped")
+            elif not ocr_engine_available():
+                record_source(source_manifest, "visual_ocr", "unavailable_tesseract_missing")
+            else:
+                ocr_text_by_frame = extract_ocr_text(frames=frames, languages=args.ocr_lang)
+                record_source(
+                    source_manifest,
+                    "visual_ocr",
+                    f"available_{len(ocr_text_by_frame)}_frames" if ocr_text_by_frame else "unavailable_no_text_detected",
+                    frame_root,
+                )
+            frame_reasons = {
+                frame: reasons_by_timestamp.get(timestamp_from_frame_path(frame), ["selected"])
+                for frame in frames
+            }
             visual_manifest = render_visual_manifest(
                 video_path=video_path,
                 frames=frames,
                 source="local_video" if args.video_input else "downloaded_video",
+                frame_reasons=frame_reasons,
+                ocr_text_by_frame=ocr_text_by_frame,
             )
             manifest_path = frame_root / "visual_manifest.json"
             manifest_path.write_text(
