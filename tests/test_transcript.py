@@ -64,3 +64,55 @@ Use a trading simulator before risking real money.
     assert "Transcript source: auto_captions" in markdown
     assert "Do not finalize strategy rules without timestamped evidence" in markdown
     assert "00:00:01" in markdown
+
+
+def test_markdown_shell_marks_partial_when_required_visual_evidence_is_missing():
+    segments = parse_vtt(
+        """WEBVTT
+
+00:00:01.000 --> 00:00:05.000
+Look here at this chart setup.
+"""
+    )
+
+    markdown = render_markdown_summary_shell(
+        title="Chart Strategy",
+        url="https://www.youtube.com/watch?v=abc",
+        transcript_source="manual_captions",
+        segments=segments,
+        visual_required=True,
+        visual_manifest=None,
+    )
+
+    assert "Distillation status: partial_missing_required_visual_evidence" in markdown
+    assert "Do not present this as a complete video distillation" in markdown
+    assert "Visual evidence: missing_required" in markdown
+
+
+def test_markdown_shell_marks_complete_when_required_visual_evidence_exists():
+    segments = parse_vtt(
+        """WEBVTT
+
+00:00:01.000 --> 00:00:05.000
+Look here at this chart setup.
+"""
+    )
+
+    markdown = render_markdown_summary_shell(
+        title="Chart Strategy",
+        url="https://www.youtube.com/watch?v=abc",
+        transcript_source="manual_captions",
+        segments=segments,
+        visual_required=True,
+        visual_manifest={
+            "frames": [
+                {
+                    "timestamp_sec": 1,
+                    "path": "frames/frame_000001.jpg",
+                }
+            ]
+        },
+    )
+
+    assert "Distillation status: complete_with_visual_evidence" in markdown
+    assert "Visual evidence: available" in markdown

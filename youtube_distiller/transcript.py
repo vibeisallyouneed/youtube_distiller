@@ -149,6 +149,7 @@ def render_markdown_summary_shell(
         f"- `{seconds_to_timestamp(segment.start_sec)}` {segment.text}"
         for segment in segments[:80]
     )
+    has_visual_frames = bool(visual_manifest and visual_manifest.get("frames"))
     if visual_manifest and visual_manifest.get("frames"):
         visual_status = "available"
         visual_lines = "\n".join(
@@ -158,12 +159,23 @@ def render_markdown_summary_shell(
     elif visual_required:
         visual_status = "missing_required"
         visual_lines = (
-            "- Visual evidence is required for chart-based trading videos. "
-            "Do not finalize strategy rules from transcript/audio alone."
+            "- Required visual/video evidence was not acquired. This artifact is "
+            "a partial transcript/audio distillation only. Do not present this "
+            "as a complete video distillation or claim visual understanding."
         )
     else:
         visual_status = "not_required"
         visual_lines = "- Visual evidence was not requested."
+
+    distillation_status = render_distillation_status(
+        visual_required=visual_required,
+        has_visual_frames=has_visual_frames,
+    )
+    completion_gate = render_completion_gate(
+        distillation_status=distillation_status,
+        visual_required=visual_required,
+        has_visual_frames=has_visual_frames,
+    )
 
     focus_lines = [
         f"- Output kind: {output_kind}",
@@ -192,6 +204,11 @@ def render_markdown_summary_shell(
 - Transcript source: {transcript_source}
 - Evidence segments available: {len(segments)}
 - Visual evidence: {visual_status}
+- Distillation status: {distillation_status}
+
+## Completion Gate
+
+{completion_gate}
 
 ## User Request
 
@@ -269,6 +286,36 @@ def render_output_guidance(
         else " Visual evidence was not requested."
     )
     return f"Produce a concise executive summary, main points, takeaways, and caveats.{visual_note}"
+
+
+def render_distillation_status(*, visual_required: bool, has_visual_frames: bool) -> str:
+    if visual_required and not has_visual_frames:
+        return "partial_missing_required_visual_evidence"
+    if visual_required:
+        return "complete_with_visual_evidence"
+    return "complete_transcript_only_visual_not_required"
+
+
+def render_completion_gate(
+    *,
+    distillation_status: str,
+    visual_required: bool,
+    has_visual_frames: bool,
+) -> str:
+    if visual_required and not has_visual_frames:
+        return (
+            "- Status: partial.\n"
+            "- Required visual/video evidence is missing.\n"
+            "- Do not present this as a complete video distillation.\n"
+            "- Do not claim visual understanding, chart verification, UI/code verification, "
+            "or complete strategy extraction.\n"
+            "- Use this artifact only for transcript-grounded interim notes until video "
+            "frames, local video, or another visual source is provided."
+        )
+    return (
+        f"- Status: {distillation_status}.\n"
+        "- Continue to cite acquired evidence and list any remaining limitations."
+    )
 
 
 def render_acquisition_manifest(acquisition_manifest: list[dict]) -> str:

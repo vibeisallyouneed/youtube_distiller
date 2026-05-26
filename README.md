@@ -21,6 +21,10 @@ URLs it attempts acquisition in this order:
 If those fail, it writes a `source_unavailable` report instead of summarizing
 from metadata.
 
+When visual evidence is required but video frames cannot be acquired, the output
+is marked `partial_missing_required_visual_evidence`. Treat that as transcript-
+grounded interim evidence, not a complete video distillation.
+
 ## Install
 
 ```bash

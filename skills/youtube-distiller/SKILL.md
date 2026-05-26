@@ -33,7 +33,9 @@ explicitly labeled indexed transcript fallback.
 
 If the requested output depends on visuals, charts, slides, code, UI actions, or
 on-screen text, visual evidence is required. If frames are unavailable, say so
-and do not claim visual understanding.
+and do not claim visual understanding. Mark the result
+`partial_missing_required_visual_evidence`; do not present it as a complete
+video distillation.
 
 ## Run
 
@@ -76,6 +78,9 @@ Useful flags:
 4. Use the generated Markdown shell as evidence context.
 5. Refine the final answer to match the user's `--requirement`.
 6. Include every source acquired, every source unavailable, and missing evidence.
+7. If `Distillation status` is `partial_missing_required_visual_evidence`, only
+   produce transcript-grounded interim notes and keep the missing visual source
+   as a blocker for complete distillation.
 
 ## Output Kinds
 
