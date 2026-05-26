@@ -287,7 +287,15 @@ def render_contact_sheets(visual_manifest: dict | None) -> str:
     contact_sheets = visual_manifest.get("contact_sheets") or []
     if not contact_sheets:
         return "- None."
-    return "\n".join(f"- {path}" for path in contact_sheets)
+    contact_sheet_notes = visual_manifest.get("contact_sheet_notes") or {}
+    lines = []
+    for path in contact_sheets:
+        note = clean_visual_text(contact_sheet_notes.get(path))
+        if note:
+            lines.append(f"- {path}: {note}")
+        else:
+            lines.append(f"- {path}")
+    return "\n".join(lines)
 
 
 def visual_manifest_has_ocr(visual_manifest: dict | None) -> bool:
@@ -302,6 +310,9 @@ def visual_manifest_has_ocr(visual_manifest: dict | None) -> bool:
 def visual_manifest_has_notes(visual_manifest: dict | None) -> bool:
     if not visual_manifest:
         return False
+    for note in (visual_manifest.get("contact_sheet_notes") or {}).values():
+        if clean_visual_text(note):
+            return True
     for frame in visual_manifest.get("frames", []):
         if clean_visual_text(frame.get("vision_notes")):
             return True

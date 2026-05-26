@@ -347,6 +347,10 @@ def read_jsonl_transcript(path: Path) -> list[TranscriptSegment]:
     return segments
 
 
+def load_visual_manifest(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def video_id_from_audio(audio_path: Path) -> str:
     return audio_path.stem
 
@@ -548,6 +552,14 @@ def main() -> int:
     parser.add_argument("--whisper-model", default="small.en")
     parser.add_argument("--force-whisper", action="store_true")
     parser.add_argument("--video-input", type=Path, help="Local video file for visual evidence")
+    parser.add_argument(
+        "--visual-manifest",
+        type=Path,
+        help=(
+            "Existing visual_manifest.json containing sampled frames, OCR, and "
+            "Codex/Claude vision notes. Use this for the post-review rendering pass."
+        ),
+    )
     parser.add_argument("--duration-sec", type=int, help="Video duration if ffprobe is unavailable")
     parser.add_argument(
         "--frame-interval-sec",
@@ -784,7 +796,15 @@ def main() -> int:
         transcript_source = "missing"
 
     visual_manifest = None
-    if video_path is not None and visual_required:
+    if args.visual_manifest is not None:
+        if not args.visual_manifest.exists():
+            parser.error(f"--visual-manifest does not exist: {args.visual_manifest}")
+        try:
+            visual_manifest = load_visual_manifest(args.visual_manifest)
+        except json.JSONDecodeError as exc:
+            parser.error(f"--visual-manifest is not valid JSON: {exc}")
+        record_source(source_manifest, "visual_manifest", "available", args.visual_manifest)
+    elif video_path is not None and visual_required:
         duration_sec = args.duration_sec or probe_duration_sec(video_path)
         if duration_sec is None and segments:
             duration_sec = int(max(segment.end_sec for segment in segments))

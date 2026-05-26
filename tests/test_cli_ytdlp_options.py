@@ -1,3 +1,4 @@
+import json
 import importlib.util
 from pathlib import Path
 import subprocess
@@ -178,3 +179,56 @@ def test_unavailable_report_does_not_make_sufficiency_claims(tmp_path):
     text = output.read_text(encoding="utf-8").lower()
     assert ("en" + "ough") not in text
     assert "could not acquire a transcript, audio, or video source" in text
+
+
+def test_main_can_render_existing_visual_manifest(monkeypatch, tmp_path):
+    transcript = tmp_path / "sample.vtt"
+    transcript.write_text(
+        """WEBVTT
+
+00:09:00.000 --> 00:09:05.000
+The visual example shows the rule.
+""",
+        encoding="utf-8",
+    )
+    visual_manifest = tmp_path / "visual_manifest.json"
+    visual_manifest.write_text(
+        json.dumps(
+            {
+                "contact_sheets": ["frames/contact_sheet_0001.jpg"],
+                "contact_sheet_notes": {
+                    "frames/contact_sheet_0001.jpg": "The sheet shows sigmoid target-weight logic."
+                },
+                "frames": [
+                    {
+                        "timestamp_sec": 540,
+                        "path": "frames/frame_000540.jpg",
+                        "ocr_text": "Sigmoid dynamic balance",
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    output = tmp_path / "summary.md"
+
+    monkeypatch.setattr(
+        summarize_video.sys,
+        "argv",
+        [
+            "summarize_video.py",
+            "--input",
+            str(transcript),
+            "--visual-manifest",
+            str(visual_manifest),
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert summarize_video.main() == 0
+    text = output.read_text(encoding="utf-8")
+    assert "Distillation status: complete_with_visual_extraction" in text
+    assert "visual_manifest: available" in text
+    assert "The sheet shows sigmoid target-weight logic." in text

@@ -86,6 +86,9 @@ Useful flags:
 - `--ocr-workers 4` controls parallel Tesseract workers.
 - `--contact-sheet-frames 20` controls how many sampled frames are grouped into
   each contact sheet for multimodal review.
+- `--visual-manifest data/frames/<video_id>/visual_manifest.json` renders a
+  post-review pass from an existing manifest after Codex/Claude vision notes
+  have been added.
 
 Media downloads retry normal cookie/no-cookie paths first, then retry public
 videos with the YouTube Android client without browser cookies. This is
@@ -101,19 +104,22 @@ required for some current YouTube web-client 403/SABR failures.
 4. Build contact sheets from sampled frames for Codex/Claude multimodal review.
 5. Run OCR on sampled frames when Tesseract is available. Treat OCR as
    secondary evidence.
-6. Inspect contact sheets or key frames with multimodality and add `vision_notes`
-   to the visual manifest before final visual-dependent extraction.
-7. Use transcript, OCR text, vision notes, and sampled frame paths as extraction
+6. Inspect contact sheets or key frames with multimodality and add
+   `contact_sheet_notes` or frame-level `vision_notes` to the visual manifest
+   before final visual-dependent extraction.
+7. Re-run the renderer with `--visual-manifest` so the final artifact includes
+   the reviewed visual notes as source evidence.
+8. Use transcript, OCR text, vision notes, and sampled frame paths as extraction
    context.
-8. Refine the final answer to match the user's `--requirement`.
-9. Include every source acquired, every source unavailable, and missing evidence.
-10. If `Distillation status` is `partial_missing_required_visual_evidence`, only
+9. Refine the final answer to match the user's `--requirement`.
+10. Include every source acquired, every source unavailable, and missing evidence.
+11. If `Distillation status` is `partial_missing_required_visual_evidence`, only
    produce transcript-grounded interim notes and keep the missing visual source
    as a blocker for complete distillation.
-11. If `Distillation status` is
+12. If `Distillation status` is
    `visual_sources_acquired_pending_interpretation`, inspect/annotate the
    sampled frames before producing final visual-dependent extraction.
-12. If `Distillation status` is
+13. If `Distillation status` is
    `visual_ocr_extracted_pending_vision_review`, use OCR as rough text evidence
    only and inspect/annotate the contact sheets with multimodality before
    producing final visual-dependent extraction.

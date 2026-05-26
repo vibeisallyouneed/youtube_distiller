@@ -73,6 +73,20 @@ OCR text from sampled frames is included as secondary evidence. The default
 dense interval is five seconds and can be lowered with `--frame-interval-sec`.
 OCR runs in parallel and can be tuned with `--ocr-workers`.
 
+After multimodal review, add the contact-sheet or frame-level vision notes to
+the generated `visual_manifest.json`, then render the final evidence shell with:
+
+```bash
+python3 scripts/summarize_video.py \
+  --input data/raw/VIDEO_ID.vtt \
+  --visual-manifest data/frames/VIDEO_ID/visual_manifest.json \
+  --requirement "Extract the implementation-ready strategy rules" \
+  --output data/summaries/VIDEO_ID.reviewed.md
+```
+
+This second pass marks visual-dependent output complete only when OCR/frame
+paths are accompanied by actual vision notes.
+
 For a local transcript:
 
 ```bash

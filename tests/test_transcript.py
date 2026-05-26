@@ -182,3 +182,37 @@ The rule is shown on screen.
     assert "Distillation status: complete_with_visual_extraction" in markdown
     assert "Visual notes: Chart displays VWAP and a breakout marker." in markdown
     assert "- frames/contact_sheet_0001.jpg" in markdown
+
+
+def test_markdown_shell_uses_contact_sheet_vision_notes():
+    segments = parse_vtt(
+        """WEBVTT
+
+00:09:00.000 --> 00:09:05.000
+The visual example shows the rule.
+"""
+    )
+
+    markdown = render_markdown_summary_shell(
+        title="Chart Strategy",
+        url="https://www.youtube.com/watch?v=abc",
+        transcript_source="manual_captions",
+        segments=segments,
+        visual_required=True,
+        visual_manifest={
+            "contact_sheets": ["frames/contact_sheet_0001.jpg"],
+            "contact_sheet_notes": {
+                "frames/contact_sheet_0001.jpg": "The sheet shows sigmoid target-weight logic.",
+            },
+            "frames": [
+                {
+                    "timestamp_sec": 540,
+                    "path": "frames/frame_000540.jpg",
+                    "ocr_text": "Sigmoid dynamic balance",
+                }
+            ],
+        },
+    )
+
+    assert "Distillation status: complete_with_visual_extraction" in markdown
+    assert "- frames/contact_sheet_0001.jpg: The sheet shows sigmoid target-weight logic." in markdown
