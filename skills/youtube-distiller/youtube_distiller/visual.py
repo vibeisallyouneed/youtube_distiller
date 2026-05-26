@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 import re
 import shutil
@@ -208,12 +209,26 @@ def extract_ocr_text(
     *,
     frames: list[Path],
     languages: str = "eng+chi_sim+chi_tra",
+    workers: int = 4,
 ) -> dict[Path, str]:
     ocr_text: dict[Path, str] = {}
-    for frame in frames:
-        text = extract_text_from_frame(frame=frame, languages=languages)
-        if text:
-            ocr_text[frame] = text
+    if workers <= 1:
+        for frame in frames:
+            text = extract_text_from_frame(frame=frame, languages=languages)
+            if text:
+                ocr_text[frame] = text
+        return ocr_text
+
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = {
+            executor.submit(extract_text_from_frame, frame=frame, languages=languages): frame
+            for frame in frames
+        }
+        for future in as_completed(futures):
+            frame = futures[future]
+            text = future.result()
+            if text:
+                ocr_text[frame] = text
     return ocr_text
 
 

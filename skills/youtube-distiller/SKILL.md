@@ -79,6 +79,7 @@ Useful flags:
 - `--scene-threshold 0.3` adds frames at detected scene changes.
 - `--ocr-lang "eng+chi_sim+chi_tra"` controls optional Tesseract OCR language
   selection. Use `--no-ocr` to skip OCR.
+- `--ocr-workers 4` controls parallel Tesseract workers.
 
 Media downloads retry normal cookie/no-cookie paths first, then retry public
 videos with the YouTube Android client without browser cookies. This is

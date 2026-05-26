@@ -68,7 +68,8 @@ Visual extraction uses dense frame sampling, transcript segment boundaries,
 visual cue neighborhoods, and ffmpeg scene-change detection. If Tesseract is
 installed, OCR text from sampled frames is included directly in the generated
 Markdown context. The default dense interval is five seconds and can be lowered
-with `--frame-interval-sec`.
+with `--frame-interval-sec`. OCR runs in parallel and can be tuned with
+`--ocr-workers`.
 
 For a local transcript:
 

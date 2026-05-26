@@ -572,6 +572,12 @@ def main() -> int:
         default="eng+chi_sim+chi_tra",
         help="Tesseract OCR language list for sampled frames.",
     )
+    parser.add_argument(
+        "--ocr-workers",
+        type=int,
+        default=4,
+        help="Number of parallel Tesseract OCR workers.",
+    )
     parser.add_argument("--no-ocr", action="store_true", help="Skip OCR on sampled frames.")
     parser.add_argument(
         "--no-video-understanding",
@@ -812,7 +818,11 @@ def main() -> int:
             elif not ocr_engine_available():
                 record_source(source_manifest, "visual_ocr", "unavailable_tesseract_missing")
             else:
-                ocr_text_by_frame = extract_ocr_text(frames=frames, languages=args.ocr_lang)
+                ocr_text_by_frame = extract_ocr_text(
+                    frames=frames,
+                    languages=args.ocr_lang,
+                    workers=args.ocr_workers,
+                )
                 record_source(
                     source_manifest,
                     "visual_ocr",
