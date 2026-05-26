@@ -26,9 +26,11 @@ When visual evidence is required but video frames cannot be acquired, the output
 is marked `partial_missing_required_visual_evidence`. Treat that as transcript-
 grounded interim evidence, not a complete video distillation.
 
-When frames are acquired but no OCR text or vision notes have been extracted,
-the output is marked `visual_sources_acquired_pending_interpretation`. Frame
-paths alone are not treated as extracted information.
+When frames are acquired but no visual notes have been extracted, the output is
+marked `visual_sources_acquired_pending_interpretation`. OCR-only output is
+marked `visual_ocr_extracted_pending_vision_review`, because OCR is a rough text
+helper rather than full visual understanding. Frame paths alone are not treated
+as extracted information.
 
 ## Install
 
@@ -65,11 +67,11 @@ paths fail. This handles current YouTube web-client 403/SABR behavior while
 still preserving cookie-based attempts for captions and restricted videos.
 
 Visual extraction uses dense frame sampling, transcript segment boundaries,
-visual cue neighborhoods, and ffmpeg scene-change detection. If Tesseract is
-installed, OCR text from sampled frames is included directly in the generated
-Markdown context. The default dense interval is five seconds and can be lowered
-with `--frame-interval-sec`. OCR runs in parallel and can be tuned with
-`--ocr-workers`.
+visual cue neighborhoods, and ffmpeg scene-change detection. It also builds
+contact sheets for Codex/Claude multimodal review. If Tesseract is installed,
+OCR text from sampled frames is included as secondary evidence. The default
+dense interval is five seconds and can be lowered with `--frame-interval-sec`.
+OCR runs in parallel and can be tuned with `--ocr-workers`.
 
 For a local transcript:
 

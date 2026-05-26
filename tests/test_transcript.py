@@ -118,7 +118,7 @@ Look here at this chart setup.
     assert "Visual evidence: available" in markdown
 
 
-def test_markdown_shell_renders_visual_ocr_as_extraction_context():
+def test_markdown_shell_marks_ocr_only_as_pending_vision_review():
     segments = parse_vtt(
         """WEBVTT
 
@@ -140,6 +140,39 @@ The rule is shown on screen.
                     "path": "frames/frame_000001.jpg",
                     "reasons": ["scene_change", "transcript_boundary"],
                     "ocr_text": "Entry: close above VWAP. Stop: previous swing low.",
+                }
+            ]
+        },
+    )
+
+    assert "Distillation status: visual_ocr_extracted_pending_vision_review" in markdown
+    assert "OCR: Entry: close above VWAP. Stop: previous swing low." in markdown
+    assert "Reasons: scene_change, transcript_boundary" in markdown
+
+
+def test_markdown_shell_marks_complete_when_vision_notes_exist():
+    segments = parse_vtt(
+        """WEBVTT
+
+00:00:01.000 --> 00:00:05.000
+The rule is shown on screen.
+"""
+    )
+
+    markdown = render_markdown_summary_shell(
+        title="Chart Strategy",
+        url="https://www.youtube.com/watch?v=abc",
+        transcript_source="manual_captions",
+        segments=segments,
+        visual_required=True,
+        visual_manifest={
+            "contact_sheets": ["frames/contact_sheet_0001.jpg"],
+            "frames": [
+                {
+                    "timestamp_sec": 1,
+                    "path": "frames/frame_000001.jpg",
+                    "reasons": ["scene_change", "transcript_boundary"],
+                    "ocr_text": "Entry: close above VWAP. Stop: previous swing low.",
                     "vision_notes": "Chart displays VWAP and a breakout marker.",
                 }
             ]
@@ -147,6 +180,5 @@ The rule is shown on screen.
     )
 
     assert "Distillation status: complete_with_visual_extraction" in markdown
-    assert "OCR: Entry: close above VWAP. Stop: previous swing low." in markdown
     assert "Visual notes: Chart displays VWAP and a breakout marker." in markdown
-    assert "Reasons: scene_change, transcript_boundary" in markdown
+    assert "- frames/contact_sheet_0001.jpg" in markdown

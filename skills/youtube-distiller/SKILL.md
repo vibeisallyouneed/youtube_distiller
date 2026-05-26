@@ -38,10 +38,14 @@ and do not claim visual understanding. Mark the result
 `partial_missing_required_visual_evidence`; do not present it as a complete
 video distillation.
 
-Frame paths alone are not enough. If frames were acquired but no OCR text or
-vision notes were extracted, mark the result
-`visual_sources_acquired_pending_interpretation`. Inspect the frames or run
-OCR/vision annotation before finalizing visual-dependent answers.
+Frame paths alone are not enough. If frames were acquired but no vision notes
+were extracted, mark the result
+`visual_sources_acquired_pending_interpretation`. If OCR exists but no
+multimodal vision notes exist, mark the result
+`visual_ocr_extracted_pending_vision_review`. OCR is secondary text evidence,
+not complete visual understanding. Inspect the contact sheets or key frames with
+Codex/Claude multimodality and add vision notes before finalizing
+visual-dependent answers.
 
 ## Run
 
@@ -80,6 +84,8 @@ Useful flags:
 - `--ocr-lang "eng+chi_sim+chi_tra"` controls optional Tesseract OCR language
   selection. Use `--no-ocr` to skip OCR.
 - `--ocr-workers 4` controls parallel Tesseract workers.
+- `--contact-sheet-frames 20` controls how many sampled frames are grouped into
+  each contact sheet for multimodal review.
 
 Media downloads retry normal cookie/no-cookie paths first, then retry public
 videos with the YouTube Android client without browser cookies. This is
@@ -92,17 +98,25 @@ required for some current YouTube web-client 403/SABR failures.
 3. Acquire visual frames when needed. The script samples dense intervals,
    transcript segment boundaries, visual cue neighborhoods, and scene changes
    with `ffmpeg`, then writes `data/frames/<video_id>/visual_manifest.json`.
-4. Run OCR on sampled frames when Tesseract is available.
-5. Use transcript, OCR text, visual notes, and sampled frame paths as extraction
+4. Build contact sheets from sampled frames for Codex/Claude multimodal review.
+5. Run OCR on sampled frames when Tesseract is available. Treat OCR as
+   secondary evidence.
+6. Inspect contact sheets or key frames with multimodality and add `vision_notes`
+   to the visual manifest before final visual-dependent extraction.
+7. Use transcript, OCR text, vision notes, and sampled frame paths as extraction
    context.
-6. Refine the final answer to match the user's `--requirement`.
-7. Include every source acquired, every source unavailable, and missing evidence.
-8. If `Distillation status` is `partial_missing_required_visual_evidence`, only
+8. Refine the final answer to match the user's `--requirement`.
+9. Include every source acquired, every source unavailable, and missing evidence.
+10. If `Distillation status` is `partial_missing_required_visual_evidence`, only
    produce transcript-grounded interim notes and keep the missing visual source
    as a blocker for complete distillation.
-9. If `Distillation status` is
+11. If `Distillation status` is
    `visual_sources_acquired_pending_interpretation`, inspect/annotate the
    sampled frames before producing final visual-dependent extraction.
+12. If `Distillation status` is
+   `visual_ocr_extracted_pending_vision_review`, use OCR as rough text evidence
+   only and inspect/annotate the contact sheets with multimodality before
+   producing final visual-dependent extraction.
 
 ## Output Kinds
 

@@ -150,7 +150,8 @@ def render_markdown_summary_shell(
         for segment in segments
     )
     has_visual_frames = bool(visual_manifest and visual_manifest.get("frames"))
-    has_visual_extraction = visual_manifest_has_extraction(visual_manifest)
+    has_visual_ocr = visual_manifest_has_ocr(visual_manifest)
+    has_visual_notes = visual_manifest_has_notes(visual_manifest)
     if visual_manifest and visual_manifest.get("frames"):
         visual_status = "available"
         visual_lines = "\n".join(
@@ -171,13 +172,15 @@ def render_markdown_summary_shell(
     distillation_status = render_distillation_status(
         visual_required=visual_required,
         has_visual_frames=has_visual_frames,
-        has_visual_extraction=has_visual_extraction,
+        has_visual_ocr=has_visual_ocr,
+        has_visual_notes=has_visual_notes,
     )
     completion_gate = render_completion_gate(
         distillation_status=distillation_status,
         visual_required=visual_required,
         has_visual_frames=has_visual_frames,
-        has_visual_extraction=has_visual_extraction,
+        has_visual_ocr=has_visual_ocr,
+        has_visual_notes=has_visual_notes,
     )
 
     focus_lines = [
@@ -198,6 +201,7 @@ def render_markdown_summary_shell(
         visual_required=visual_required,
     )
     acquisition_lines = render_acquisition_manifest(acquisition_manifest or [])
+    contact_sheet_lines = render_contact_sheets(visual_manifest)
 
     return f"""# Video Distillation: {title}
 
@@ -242,6 +246,12 @@ indicator settings, timeframe, and execution timing are explicit.
 
 ## Visual Evidence Map
 
+### Contact Sheets
+
+{contact_sheet_lines}
+
+### Frame Notes
+
 {visual_lines}
 
 ## Evidence Map
@@ -271,11 +281,29 @@ def clean_visual_text(value) -> str:
     return text
 
 
-def visual_manifest_has_extraction(visual_manifest: dict | None) -> bool:
+def render_contact_sheets(visual_manifest: dict | None) -> str:
+    if not visual_manifest:
+        return "- None."
+    contact_sheets = visual_manifest.get("contact_sheets") or []
+    if not contact_sheets:
+        return "- None."
+    return "\n".join(f"- {path}" for path in contact_sheets)
+
+
+def visual_manifest_has_ocr(visual_manifest: dict | None) -> bool:
     if not visual_manifest:
         return False
     for frame in visual_manifest.get("frames", []):
-        if clean_visual_text(frame.get("ocr_text")) or clean_visual_text(frame.get("vision_notes")):
+        if clean_visual_text(frame.get("ocr_text")):
+            return True
+    return False
+
+
+def visual_manifest_has_notes(visual_manifest: dict | None) -> bool:
+    if not visual_manifest:
+        return False
+    for frame in visual_manifest.get("frames", []):
+        if clean_visual_text(frame.get("vision_notes")):
             return True
     return False
 
@@ -330,11 +358,14 @@ def render_distillation_status(
     *,
     visual_required: bool,
     has_visual_frames: bool,
-    has_visual_extraction: bool = False,
+    has_visual_ocr: bool = False,
+    has_visual_notes: bool = False,
 ) -> str:
     if visual_required and not has_visual_frames:
         return "partial_missing_required_visual_evidence"
-    if visual_required and not has_visual_extraction:
+    if visual_required and has_visual_ocr and not has_visual_notes:
+        return "visual_ocr_extracted_pending_vision_review"
+    if visual_required and not has_visual_notes:
         return "visual_sources_acquired_pending_interpretation"
     if visual_required:
         return "complete_with_visual_extraction"
@@ -346,7 +377,8 @@ def render_completion_gate(
     distillation_status: str,
     visual_required: bool,
     has_visual_frames: bool,
-    has_visual_extraction: bool = False,
+    has_visual_ocr: bool = False,
+    has_visual_notes: bool = False,
 ) -> str:
     if visual_required and not has_visual_frames:
         return (
@@ -358,7 +390,17 @@ def render_completion_gate(
             "- Use this artifact only for transcript-grounded interim notes until video "
             "frames, local video, or another visual source is provided."
         )
-    if visual_required and not has_visual_extraction:
+    if visual_required and has_visual_ocr and not has_visual_notes:
+        return (
+            "- Status: OCR extracted, multimodal vision review pending.\n"
+            "- Use OCR as rough text evidence only; it can be noisy and incomplete.\n"
+            "- Inspect the contact sheets or key frames with multimodal vision and write "
+            "`vision_notes` before finalizing visual-dependent extraction.\n"
+            "- For trading strategy extraction, do not mark the strategy backable until "
+            "visual thresholds, indicator settings, chart examples, and on-screen rules "
+            "have been reconciled with the transcript."
+        )
+    if visual_required and not has_visual_notes:
         return (
             "- Status: visual sources acquired, interpretation pending.\n"
             "- Do not finalize visual-dependent extraction from frame paths alone.\n"

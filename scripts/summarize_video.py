@@ -24,12 +24,15 @@ from youtube_distiller.transcript import (
     parse_vtt,
     render_markdown_summary_shell,
 )
-from youtube_distiller.visual import extract_frames, plan_frame_samples, render_visual_manifest
 from youtube_distiller.visual import (
+    build_contact_sheets,
     detect_scene_change_timestamps,
+    extract_frames,
     extract_ocr_text,
     frame_reason_map,
     ocr_engine_available,
+    plan_frame_samples,
+    render_visual_manifest,
     timestamp_from_frame_path,
 )
 
@@ -580,6 +583,12 @@ def main() -> int:
     )
     parser.add_argument("--no-ocr", action="store_true", help="Skip OCR on sampled frames.")
     parser.add_argument(
+        "--contact-sheet-frames",
+        type=int,
+        default=20,
+        help="Frames per contact sheet for multimodal review.",
+    )
+    parser.add_argument(
         "--no-video-understanding",
         action="store_true",
         help="Allow transcript-only output. Not recommended for trading videos.",
@@ -833,12 +842,24 @@ def main() -> int:
                 frame: reasons_by_timestamp.get(timestamp_from_frame_path(frame), ["selected"])
                 for frame in frames
             }
+            contact_sheets = build_contact_sheets(
+                frames=frames,
+                output_dir=frame_root / "contact_sheets",
+                frames_per_sheet=args.contact_sheet_frames,
+            )
+            record_source(
+                source_manifest,
+                "visual_contact_sheets",
+                f"available_{len(contact_sheets)}_sheets" if contact_sheets else "unavailable",
+                frame_root / "contact_sheets",
+            )
             visual_manifest = render_visual_manifest(
                 video_path=video_path,
                 frames=frames,
                 source="local_video" if args.video_input else "downloaded_video",
                 frame_reasons=frame_reasons,
                 ocr_text_by_frame=ocr_text_by_frame,
+                contact_sheets=contact_sheets,
             )
             manifest_path = frame_root / "visual_manifest.json"
             manifest_path.write_text(

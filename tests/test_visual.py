@@ -2,6 +2,7 @@ from pathlib import Path
 
 from youtube_distiller.transcript import TranscriptSegment
 from youtube_distiller.visual import (
+    build_contact_sheets,
     build_ffmpeg_frame_command,
     build_ffmpeg_scene_detect_command,
     parse_scene_change_timestamps,
@@ -97,3 +98,24 @@ def test_render_visual_manifest_marks_required_visual_evidence():
     assert manifest["frames"][0]["timestamp_sec"] == 67
     assert manifest["frames"][0]["reasons"] == ["scene_change", "transcript_boundary"]
     assert manifest["frames"][0]["ocr_text"] == "Entry above VWAP; stop below low."
+
+
+def test_build_contact_sheets_groups_frames_for_multimodal_review(tmp_path):
+    from PIL import Image
+
+    frames = []
+    for timestamp in [1, 2, 3]:
+        frame = tmp_path / f"frame_{timestamp:06d}.jpg"
+        Image.new("RGB", (80, 45), color=(timestamp * 40, 10, 10)).save(frame)
+        frames.append(frame)
+
+    sheets = build_contact_sheets(
+        frames=frames,
+        output_dir=tmp_path / "sheets",
+        frames_per_sheet=2,
+        columns=2,
+        thumb_width=120,
+    )
+
+    assert [sheet.name for sheet in sheets] == ["contact_sheet_0001.jpg", "contact_sheet_0002.jpg"]
+    assert sheets[0].exists()

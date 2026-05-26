@@ -232,6 +232,68 @@ def extract_ocr_text(
     return ocr_text
 
 
+def build_contact_sheets(
+    *,
+    frames: list[Path],
+    output_dir: Path,
+    frames_per_sheet: int = 20,
+    columns: int = 5,
+    thumb_width: int = 320,
+) -> list[Path]:
+    try:
+        from PIL import Image, ImageDraw
+    except ImportError:
+        return []
+
+    if not frames:
+        return []
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    rows = max(1, (frames_per_sheet + columns - 1) // columns)
+    label_height = 24
+    sheets: list[Path] = []
+
+    for sheet_index, start in enumerate(range(0, len(frames), frames_per_sheet), start=1):
+        batch = frames[start : start + frames_per_sheet]
+        thumbnails = []
+        for frame in batch:
+            image = Image.open(frame).convert("RGB")
+            ratio = thumb_width / image.width
+            thumb_height = max(1, int(image.height * ratio))
+            image = image.resize((thumb_width, thumb_height))
+            thumbnails.append((frame, image))
+
+        thumb_height = max(image.height for _, image in thumbnails)
+        sheet = Image.new(
+            "RGB",
+            (columns * thumb_width, rows * (thumb_height + label_height)),
+            color=(18, 18, 18),
+        )
+        draw = ImageDraw.Draw(sheet)
+
+        for index, (frame, image) in enumerate(thumbnails):
+            column = index % columns
+            row = index // columns
+            x = column * thumb_width
+            y = row * (thumb_height + label_height)
+            sheet.paste(image, (x, y + label_height))
+            label = f"{seconds_label(timestamp_from_frame_path(frame))} {frame.name}"
+            draw.text((x + 4, y + 4), label, fill=(240, 240, 240))
+
+        output_path = output_dir / f"contact_sheet_{sheet_index:04d}.jpg"
+        sheet.save(output_path, quality=90)
+        sheets.append(output_path)
+
+    return sheets
+
+
+def seconds_label(value: int) -> str:
+    hours = value // 3600
+    minutes = (value % 3600) // 60
+    seconds = value % 60
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+
 def timestamp_from_frame_path(path: Path) -> int:
     match = re.search(r"frame_(\d+)\.jpg$", path.name)
     if match is None:
@@ -246,11 +308,13 @@ def render_visual_manifest(
     source: str,
     frame_reasons: dict[Path, list[str]] | None = None,
     ocr_text_by_frame: dict[Path, str] | None = None,
+    contact_sheets: list[Path] | None = None,
 ) -> dict:
     return {
         "visual_evidence_required": True,
         "source": source,
         "video_path": str(video_path),
+        "contact_sheets": [str(path) for path in contact_sheets or []],
         "frames": [
             {
                 "timestamp_sec": timestamp_from_frame_path(frame),
