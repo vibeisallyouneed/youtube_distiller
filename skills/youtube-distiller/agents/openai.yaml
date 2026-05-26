@@ -1,0 +1,7 @@
+interface:
+  display_name: "YouTube Distiller"
+  short_description: "Extract custom answers from videos"
+  default_prompt: "Use $youtube-distiller to distill this YouTube video into the specific output I request."
+
+policy:
+  allow_implicit_invocation: true
