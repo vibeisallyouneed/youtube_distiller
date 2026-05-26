@@ -73,6 +73,8 @@ Useful flags:
 - `--output-kind summary|qa|topic|tutorial|strategy|claims|notes|custom`
 - `--question "specific question"` for Q&A.
 - `--topic "specific topic"` for topic extraction.
+- `--source-url "<youtube-url>"` when rendering from cached local files and you
+  want the output to cite the original URL without re-acquiring YouTube.
 - `--cookies-from-browser auto|chrome|safari|firefox|edge|brave|chromium|none`.
   Default `auto` tries unauthenticated access first, then common browser-cookie
   sources.
@@ -96,6 +98,11 @@ required for some current YouTube web-client 403/SABR failures.
 
 ## Output Flow
 
+The CLI creates an evidence packet. It does not replace the agent's final
+distillation step. When the user asks for a summary, strategy, answer, claims
+list, or other output, the skill must write the final requested Markdown output
+after the evidence packet is complete.
+
 1. Attempt all applicable caption, audio, and video sources.
 2. Transcribe any acquired audio/video with Whisper.
 3. Acquire visual frames when needed. The script samples dense intervals,
@@ -111,15 +118,17 @@ required for some current YouTube web-client 403/SABR failures.
    the reviewed visual notes as source evidence.
 8. Use transcript, OCR text, vision notes, and sampled frame paths as extraction
    context.
-9. Refine the final answer to match the user's `--requirement`.
-10. Include every source acquired, every source unavailable, and missing evidence.
-11. If `Distillation status` is `partial_missing_required_visual_evidence`, only
+9. Write the final requested output as Markdown. Do not leave the user with only
+   the evidence packet.
+10. Refine the final answer to match the user's `--requirement`.
+11. Include every source acquired, every source unavailable, and missing evidence.
+12. If `Distillation status` is `partial_missing_required_visual_evidence`, only
    produce transcript-grounded interim notes and keep the missing visual source
    as a blocker for complete distillation.
-12. If `Distillation status` is
+13. If `Distillation status` is
    `visual_sources_acquired_pending_interpretation`, inspect/annotate the
    sampled frames before producing final visual-dependent extraction.
-13. If `Distillation status` is
+14. If `Distillation status` is
    `visual_ocr_extracted_pending_vision_review`, use OCR as rough text evidence
    only and inspect/annotate the contact sheets with multimodality before
    producing final visual-dependent extraction.

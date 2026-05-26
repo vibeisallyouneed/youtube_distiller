@@ -220,6 +220,10 @@ The visual example shows the rule.
             "summarize_video.py",
             "--input",
             str(transcript),
+            "--title",
+            "Reviewed Strategy Video",
+            "--source-url",
+            "https://youtube.test/watch?v=abc",
             "--visual-manifest",
             str(visual_manifest),
             "--output",
@@ -229,6 +233,8 @@ The visual example shows the rule.
 
     assert summarize_video.main() == 0
     text = output.read_text(encoding="utf-8")
+    assert "# Video Distillation: Reviewed Strategy Video" in text
+    assert "URL: https://youtube.test/watch?v=abc" in text
     assert "Distillation status: complete_with_visual_extraction" in text
     assert "visual_manifest: available" in text
     assert "The sheet shows sigmoid target-weight logic." in text

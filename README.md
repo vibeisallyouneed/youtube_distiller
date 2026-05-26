@@ -8,6 +8,10 @@ outputs.
 
 The bundled installable skill is in `skills/youtube-distiller`.
 
+The CLI output is an evidence packet for an agent. The installable skill uses
+that packet to write the final requested Markdown output, such as a summary,
+Q&A answer, topic extraction, or trading-strategy distillation.
+
 ## Source Policy
 
 The distiller treats metadata as identification/debug data only. For YouTube
@@ -79,6 +83,7 @@ the generated `visual_manifest.json`, then render the final evidence shell with:
 ```bash
 python3 scripts/summarize_video.py \
   --input data/raw/VIDEO_ID.vtt \
+  --source-url "https://www.youtube.com/watch?v=VIDEO_ID" \
   --visual-manifest data/frames/VIDEO_ID/visual_manifest.json \
   --requirement "Extract the implementation-ready strategy rules" \
   --output data/summaries/VIDEO_ID.reviewed.md

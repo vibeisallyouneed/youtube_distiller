@@ -516,6 +516,10 @@ def main() -> int:
         description="Create a timestamp-grounded video distillation shell from a YouTube URL or local source."
     )
     parser.add_argument("--url", help="YouTube video URL")
+    parser.add_argument(
+        "--source-url",
+        help="Display/source URL to show when rendering from local cached files without re-acquiring YouTube.",
+    )
     parser.add_argument("--input", type=Path, help="Local .vtt/.srt/.txt transcript")
     parser.add_argument("--title", default="Untitled YouTube Video")
     parser.add_argument(
@@ -889,7 +893,7 @@ def main() -> int:
 
     markdown = render_markdown_summary_shell(
         title=args.title,
-        url=args.url or str(args.input),
+        url=args.source_url or args.url or str(args.input),
         transcript_source=transcript_source,
         segments=segments,
         visual_manifest=visual_manifest,

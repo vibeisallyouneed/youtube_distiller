@@ -225,9 +225,13 @@ def render_markdown_summary_shell(
 
 {acquisition_lines}
 
-## Requested Output Draft
+## Requested Output Instructions
 
 {output_guidance}
+
+This file is the evidence packet. After the completion gate is clear, write the
+final requested summary, answer, or extraction in a separate Markdown section or
+file using the evidence below.
 
 ## Evidence Rules
 
