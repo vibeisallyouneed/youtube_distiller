@@ -58,6 +58,9 @@ Useful flags:
 - `--output-kind summary|qa|topic|tutorial|strategy|claims|notes|custom`
 - `--question "specific question"` for Q&A.
 - `--topic "specific topic"` for topic extraction.
+- `--cookies-from-browser chrome|safari|firefox|edge|brave|chromium` when
+  YouTube hides captions/media behind browser session access.
+- `--sub-langs "en.*,zh.*"` to control caption languages.
 - `--no-video-understanding` only when visuals are irrelevant.
 
 ## Output Flow

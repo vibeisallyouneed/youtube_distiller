@@ -40,9 +40,14 @@ From the repo root:
 ```bash
 python3 scripts/summarize_video.py \
   --url "https://www.youtube.com/watch?v=VIDEO_ID" \
+  --cookies-from-browser chrome \
   --requirement "Extract the trading strategy and identify missing backtest rules" \
   --output data/summaries/VIDEO_ID.md
 ```
+
+Use `--cookies-from-browser chrome|safari|firefox|edge|brave|chromium` when
+YouTube hides captions or media behind browser session access. The default
+caption language selector is `--sub-langs "en.*,zh.*"`.
 
 For a local transcript:
 
