@@ -18,6 +18,13 @@ Do not pretend source access succeeded. Metadata is useful for identifying and
 debugging a video, but metadata is not a transcript, audio stream, or visual
 source.
 
+Keep source provenance separate. If the user provides extra files, notes,
+system docs, NotebookLM exports, repository files, or other non-video sources,
+do not present their details as facts extracted from the video. Label final
+outputs as `video-only`, `video-plus-docs`, or another explicit source scope,
+and cite which claims came from transcript/audio/visual evidence versus attached
+documents.
+
 Always attempt every applicable source before summarizing or extracting:
 
 1. manual captions
@@ -122,13 +129,15 @@ after the evidence packet is complete.
    the evidence packet.
 10. Refine the final answer to match the user's `--requirement`.
 11. Include every source acquired, every source unavailable, and missing evidence.
-12. If `Distillation status` is `partial_missing_required_visual_evidence`, only
+12. If additional non-video sources were used, include a provenance note that
+   separates video-derived claims from document-derived claims.
+13. If `Distillation status` is `partial_missing_required_visual_evidence`, only
    produce transcript-grounded interim notes and keep the missing visual source
    as a blocker for complete distillation.
-13. If `Distillation status` is
+14. If `Distillation status` is
    `visual_sources_acquired_pending_interpretation`, inspect/annotate the
    sampled frames before producing final visual-dependent extraction.
-14. If `Distillation status` is
+15. If `Distillation status` is
    `visual_ocr_extracted_pending_vision_review`, use OCR as rough text evidence
    only and inspect/annotate the contact sheets with multimodality before
    producing final visual-dependent extraction.

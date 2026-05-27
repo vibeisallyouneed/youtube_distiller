@@ -12,6 +12,11 @@ The CLI output is an evidence packet for an agent. The installable skill uses
 that packet to write the final requested Markdown output, such as a summary,
 Q&A answer, topic extraction, or trading-strategy distillation.
 
+Source provenance matters. If an output uses extra files, repository docs,
+NotebookLM exports, or other non-video material, label it as `video-plus-docs`
+or another explicit source scope and separate video-derived claims from
+document-derived claims.
+
 ## Source Policy
 
 The distiller treats metadata as identification/debug data only. For YouTube
